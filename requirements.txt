@@ -1,0 +1,4 @@
+google-genai
+yfinance
+duckduckgo-search
+requests

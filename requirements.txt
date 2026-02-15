@@ -3,3 +3,4 @@ yfinance
 duckduckgo-search
 requests
 matplotlib
+mplfinance

@@ -6,7 +6,7 @@ from duckduckgo_search import DDGS
 from datetime import datetime
 import json
 import io
-import pandas as pd
+import time # 🔥 [필수] 시간을 세기 위한 도구 추가
 
 # ---------------------------------------------------------
 # 🔥 [필수] 모니터 없는 서버 설정
@@ -26,13 +26,12 @@ my_portfolio = {
     "PL": 15.84
 }
 
-# 장기 투자자를 위한 매크로 (달러, 금리, 나스닥)
 market_indices = ["DX-Y.NYB", "^TNX", "NQ=F"] 
 news_summary = ""
 embed_fields = []
 files = {} 
 
-print("🦅 [Pure Narrative Mode] 유동성과 내러티브 분석 중...")
+print("🦅 [System] 재시도(Retry) 기능 탑재된 봇 가동...")
 
 # 뉴스 가져오기
 def get_news(symbol):
@@ -48,33 +47,27 @@ def get_news(symbol):
         return ""
     except: return ""
 
-# 차트 (장기 추세용 200일선)
+# 차트 생성
 def generate_long_term_chart(ticker_symbol):
     try:
         stock = yf.Ticker(ticker_symbol)
         df = stock.history(period="1y") 
         if df.empty: return None
 
-        # 스타일: 디스코드 다크 테마
-        mc = mpf.make_marketcolors(up='#00ff00', down='#ff0000', edge='inherit', 
-                                   wick='inherit', volume='in')
-        s = mpf.make_mpf_style(marketcolors=mc, base_mpf_style='nightclouds', 
-                               facecolor='#2b2d31', gridcolor='#40444b', gridstyle=':')
+        mc = mpf.make_marketcolors(up='#00ff00', down='#ff0000', edge='inherit', wick='inherit', volume='in')
+        s = mpf.make_mpf_style(marketcolors=mc, base_mpf_style='nightclouds', facecolor='#2b2d31', gridcolor='#40444b', gridstyle=':')
         
         buf = io.BytesIO()
-        # 50일/200일 이평선 표시
-        mpf.plot(df, type='candle', style=s, 
-                 volume=True, mav=(50, 200), 
+        mpf.plot(df, type='candle', style=s, volume=True, mav=(50, 200), 
                  title=f"\n{ticker_symbol} (1 Year Trend)",
-                 savefig=dict(fname=buf, dpi=100, bbox_inches='tight', pad_inches=0.1)
-                )
+                 savefig=dict(fname=buf, dpi=100, bbox_inches='tight', pad_inches=0.1))
         buf.seek(0)
         return buf
     except Exception as e:
         print(f"❌ {ticker_symbol} 차트 실패: {e}")
         return None
 
-# 3. 매크로 유동성 체크
+# 3. 매크로 데이터
 macro_data = []
 try:
     btc = yf.Ticker("BTC-USD")
@@ -104,7 +97,7 @@ for t in market_indices:
 
 description = f"{btc_str}\n{' | '.join(macro_data)}\n━━━━━━━━━━━━━━━━━━━━"
 
-# 4. 내 종목 분석 (PSR 삭제, 내러티브 집중)
+# 4. 내 종목 분석
 for t, my_avg in my_portfolio.items():
     try:
         stock = yf.Ticker(t)
@@ -116,7 +109,6 @@ for t, my_avg in my_portfolio.items():
             yield_pct = ((cur - my_avg) / my_avg) * 100
             market_cap = info.get('marketCap', 0) / 1000000000 # Billions
 
-            # 장기 추세 판독 (200일선 기준)
             ma200 = hist['Close'].rolling(window=200).mean().iloc[-1]
             if cur > ma200:
                 trend = "📈 강세장 (Bull)"
@@ -125,15 +117,12 @@ for t, my_avg in my_portfolio.items():
                 trend = "📉 약세장 (Bear)"
                 trend_color = "🔴"
 
-            # 차트 생성
             chart_buf = generate_long_term_chart(t)
             if chart_buf: files[f"{t}.png"] = chart_buf
 
-            # 뉴스
             n = get_news(t)
             news_txt = f"\n> 📰 {n}" if n else ""
 
-            # AI에게 보낼 요약 (PSR 제거됨)
             news_summary += f"[{t}] 시총 ${market_cap:.2f}B, 추세: {trend}, 뉴스: {n}\n"
             
             embed_fields.append({
@@ -144,23 +133,41 @@ for t, my_avg in my_portfolio.items():
     except Exception as e:
         print(f"❌ {t} 에러: {e}")
 
-# 5. AI 분석 (유동성 & 내러티브 중심)
-try:
-    prompt = f"""
-    [상황]
-    {news_summary}
-    [임무]
-    당신은 '유동성(Liquidity)과 내러티브(Narrative)'를 중시하는 장기 투자자입니다.
-    1. PSR, PER 같은 가치평가 지표는 무시하고, 오직 '성장 스토리'가 유효한지만 판단하세요.
-    2. 매크로 환경(금리/달러)이 현재의 내러티브를 뒷받침하는지 분석하세요.
-    3. 단기 등락은 무시하고 큰 흐름만 짚어주세요.
-    4. 말투: 간결하고 통찰력 있게. (한글)
-    """
-    response = client.models.generate_content(model='gemini-flash-latest', contents=prompt)
-    analysis = response.text
-except: analysis = "내러티브 분석 대기 중..."
+# 5. AI 분석 (🔥 재시도 로직 추가됨)
+analysis = "🚨 3번 시도했으나 AI가 응답하지 않았습니다." # 기본값
 
-embed_fields.append({"name": "🧠 **Narrative Insight**", "value": f"```fix\n{analysis}\n```", "inline": False})
+prompt = f"""
+[상황]
+{news_summary}
+[임무]
+당신은 '유동성(Liquidity)과 내러티브(Narrative)'를 중시하는 장기 투자자입니다.
+1. PSR, PER 같은 가치평가 지표는 무시하고, 오직 '성장 스토리'가 유효한지만 판단하세요.
+2. 매크로 환경(금리/달러)이 현재의 내러티브를 뒷받침하는지 분석하세요.
+3. 단기 등락은 무시하고 큰 흐름만 짚어주세요.
+4. 말투: 간결하고 통찰력 있게. 중요한 단어는 **별표 두개**로 감싸서 강조하세요. (한글)
+"""
+
+# 🔥 [핵심] 3번까지 재시도하는 루프
+for attempt in range(1, 4): # 1, 2, 3번 시도
+    try:
+        print(f"🧠 AI 분석 시도 중... ({attempt}/3)")
+        response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+        if response.text:
+            analysis = response.text
+            print("✅ AI 분석 성공!")
+            break # 성공했으니 루프 탈출
+    except Exception as e:
+        print(f"⚠️ 실패 ({attempt}/3): {e}")
+        if attempt < 3:
+            time.sleep(2) # 2초 휴식 후 재도전
+        else:
+            print("❌ 최종 실패. 다음 기회에...")
+
+embed_fields.append({
+    "name": "🧠 **Narrative Insight**", 
+    "value": analysis, 
+    "inline": False
+})
 
 payload = {
     "embeds": [{
@@ -178,4 +185,5 @@ if files:
 else:
     requests.post(discord_url, json=payload)
 
-print("🚀 [전송 완료] PSR 제거됨")
+print("🚀 [전송 완료]")
+

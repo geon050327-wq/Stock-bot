@@ -1,7 +1,3 @@
-google-genai
-yfinance
-duckduckgo-search
-requests
-matplotlib
-mplfinance
 streamlit
+google-genai
+duckduckgo-search

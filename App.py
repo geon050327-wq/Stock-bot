@@ -68,7 +68,7 @@ if st.button("진짜 혜택 팩트체크 🚀"):
             
             try:
                 # 3. Gemini에게 답변 받아오기
-                response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+                response = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
                 
                 st.success("✨ 분석 완료! 정부 공식 데이터를 기반으로 번역했습니다.")
                 
